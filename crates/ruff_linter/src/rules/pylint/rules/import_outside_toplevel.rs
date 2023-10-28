@@ -1,6 +1,6 @@
 use ruff_diagnostics::{Diagnostic, Violation};
 use ruff_macros::{derive_message_formats, violation};
-use ruff_python_ast::Stmt;
+use ruff_python_ast::{Alias, Stmt};
 use ruff_text_size::Ranged;
 
 use crate::checkers::ast::Checker;
@@ -14,20 +14,30 @@ use crate::checkers::ast::Checker;
 ///
 /// https://peps.python.org/pep-0008/#imports
 #[violation]
-pub struct ImportOutsideToplevel;
+pub struct ImportOutsideToplevel {
+    names: String,
+}
 
 impl Violation for ImportOutsideToplevel {
     #[derive_message_formats]
     fn message(&self) -> String {
-        format!("Import outside toplevel")
+        let Self { names } = self;
+        format!("Import outside toplevel ({names})")
     }
 }
 
 /// C0415
-pub(crate) fn import_outside_toplevel(checker: &mut Checker, stmt: &Stmt) {
+pub(crate) fn import_outside_toplevel(checker: &mut Checker, stmt: &Stmt, names: &[Alias]) {
     if !checker.semantic().current_scope().kind.is_module() {
-        checker
-            .diagnostics
-            .push(Diagnostic::new(ImportOutsideToplevel, stmt.range()));
+        let names: String = names
+            .iter()
+            .map(|name| name.name.clone().to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        checker.diagnostics.push(Diagnostic::new(
+            ImportOutsideToplevel { names },
+            stmt.range(),
+        ));
     }
 }
